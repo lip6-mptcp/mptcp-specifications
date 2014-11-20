@@ -1,0 +1,1 @@
+For a connection to allow multiple subflows, it should send DSS untilit receives one DataAck: no timeout mentioned in RFC (linux stops after sending 64kb of data)
