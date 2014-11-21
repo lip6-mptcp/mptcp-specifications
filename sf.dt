@@ -1,0 +1,12 @@
+digraph {
+active [label="Active"]
+backup [label="Backup"]
+closed [label="Closed"]
+
+
+active -> backup [label="Snd MP_PRIO"]
+backup -> active [label="Snd MP_PRIO"]
+backup -> closed
+
+active -> closed
+}

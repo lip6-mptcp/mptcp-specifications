@@ -1,0 +1,10 @@
+,This table shows when an option can be received : ,,,
+,+ => can be received when at least 1 subflow active,,,
+,* => whatever the number of subflows,,,
+,> => must be more than 1 subflow,,,
+,0 => can be received when 0 subflow,,,
+,M_LISTEN,M_ESTA,M_ESTA_MP,M_ESTA_WAIT
+MP_CAPABLE,0,,,
+DSS – datafin,,,,
+DSS + datafin,,,,
+MP_JOIN,,,,
