@@ -3,6 +3,9 @@
 ,* => whatever the number of subflows,,,
 ,> => must be more than 1 subflow,,,
 ,0 => can be received when 0 subflow,,,
+,,,,
+,MP_FASTCLOSE can be received/send anytime,,,
+,,,,
 ,M_LISTEN,M_ESTA,M_ESTA_MP,M_ESTA_WAIT
 MP_CAPABLE,0,,,
 DSS – datafin,,,,
