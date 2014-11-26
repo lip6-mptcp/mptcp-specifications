@@ -1,3 +1,6 @@
+# Generate via dot -Tpng > meta.png
+#
+#
 digraph g{
 
 # name must start by "cluster" if we want border
@@ -10,11 +13,6 @@ graph[style=dotted];
 
 subgraph clustermptcp {
 label="Meta";
-node [shape=diamond]
-if_contiguous_data [label="Contiguous data"];
-
-# active nb of subflows
-if_subflow_nb [label="Number of subflows"];
 
 node [shape=rectangle]
 m_listen [label="M_LISTEN"]
@@ -23,10 +21,10 @@ m_syn_rcvd [label="M_SYN_RCVD"]
 
 m_esta_sp [label="ESTAB (M_ESTA_SP)"]
 m_esta_mp [label="M_ESTA_MP"]
-m_esta_wait [label="M_ESTA_WAIT"]
+m_esta_wait [label="M_ESTA_WAIT\nWaiting for dataack"]
 
 # could link to a subgraph/cluster
-m_on_dfin [label="See appendix C"]
+#m_on_dfin [label="See appendix C"]
 m_on_fin [label="See TCP FSM"]
 
 m_closed [label="M_CLOSED"]
@@ -38,17 +36,33 @@ syn_rcvd [label="Fallback to TCP"]
 
 }
 
+subgraph clusterclosing {
+m_fin_wait_1 [label="M_FIN_WAIT_1"]
+m_fin_wait_2 [label="M_FIN_WAIT_2"]
+m_time_wait [label="M_TIME_WAIT"]
+m_close_wait [label="M_CLOSE_WAIT"]
+m_last_ack [label="M_LAST_ACK"]
+m_closing [label="M_CLOSING"]
+}
+
+subgraph clustermpfail {
+node [shape=diamond]
+if_contiguous_data [label="Contiguous data"];
+
+# active nb of subflows
+if_subflow_nb [label="Number of subflows"];
+
+}
 
 
-
-m_listen -> syn_rcvd [label="SYN"]
+m_listen -> syn_rcvd [label="Rcv SYN"]
 m_listen -> m_syn_rcvd [label="Rcv SYN + MP_CAPABLE\nMaster subflow established"]
 
 m_syn_sent -> m_syn_rcvd [label="Rcv SYN+MP_CAPABLE"]
 m_syn_sent -> esta [label="Rcv SYN+ACK"]
 
-m_syn_rcvd -> m_esta_wait [label="ACK + MP_CAPABLE"]
-m_syn_rcvd -> esta [label="ACK"]
+m_syn_rcvd -> m_esta_wait [label="Snd ACK + MP_CAPABLE"]
+m_syn_rcvd -> esta [label="Rcv ACK"]
 
 if_subflow_nb -> if_contiguous_data [label="=1"];
 if_subflow_nb -> m_esta_mp [label=">1\nSnd RST"]
@@ -56,24 +70,38 @@ if_contiguous_data -> m_esta_mp [label="yes\nSnd infinite mapping"]
 if_contiguous_data -> m_esta_mp [label="no\nSnd RST+MP_FAIL"]
 
 m_esta_wait -> m_esta_mp [label="Recv DACK within constraints"]
-m_esta_wait -> m_esta_sp [label="No DACK within constraints"]
+m_esta_wait -> m_esta_sp [label="No DACK within constraints\nSnd infinite mapping"]
 
 m_esta_sp -> m_on_fin [label="Recv FIN"]
 
-m_esta_mp -> if_subflow_nb [label="MP_FAIL"]
+m_esta_mp -> if_subflow_nb [label="Error detected (wrong checksum)\nSndMP_FAIL"]
 
-m_esta_mp -> m_on_dfin [label="Recv DFIN"]
+m_esta_mp -> m_close_wait [label="Recv DFIN\nSnd DATA_ACK[DFIN]"]
 m_esta_mp -> m_fastclose [label="Close all subflows but 1\nSnd MP_FASTCLOSE on remaining sf"]
 
 m_esta_mp -> m_esta_mp [label="Rcv SYN + MP_JOIN"]
 m_esta_mp -> m_esta_mp [label="Active open\nSnd SYN + MP_JOIN"]
 
-m_esta_mp -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST"]
+m_esta_mp -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST on remaining subflows"]
+
+m_esta_mp -> m_fin_wait_1 [label="Snd DFIN"]
 
 m_fastclose -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST"]
 m_fastclose -> m_closed [label="Rcv RST"]
 
+m_close_wait -> m_last_ack [label="App close\nSnd DFIN"]
+
+m_fin_wait_1 -> m_fin_wait_2 [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
+
+m_fin_wait_2 -> m_time_wait [label="Rcv DFIN\nSnd DATA_ACK[DFIN]"]
+
+m_last_ack -> m_closed [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
+
+m_time_wait -> m_closed [label="All subflow closed"]
+
 m_closed -> m_syn_sent [label="Active open\nSnd SYN+MP_CAPABLE"]
 m_closed -> m_listen [label="Passive open"]
+
+
 
 }
