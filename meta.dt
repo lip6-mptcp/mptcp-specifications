@@ -59,10 +59,10 @@ m_listen -> syn_rcvd [label="Rcv SYN"]
 m_listen -> m_syn_rcvd [label="Rcv SYN + MP_CAPABLE\nMaster subflow established"]
 
 m_syn_sent -> m_syn_rcvd [label="Rcv SYN+MP_CAPABLE"]
-m_syn_sent -> esta [label="Rcv SYN+ACK"]
+m_syn_sent -> esta [label="Rcv SYN+ACK\nFallback to TCP"]
 
 m_syn_rcvd -> m_esta_wait [label="Snd ACK + MP_CAPABLE"]
-m_syn_rcvd -> esta [label="Rcv ACK"]
+m_syn_rcvd -> esta [label="Rcv ACK\nFallback to TCP"]
 
 if_subflow_nb -> if_contiguous_data [label="=1"];
 if_subflow_nb -> m_esta_mp [label=">1\nSnd RST"]
@@ -84,18 +84,21 @@ m_esta_mp -> m_esta_mp [label="Active open\nSnd SYN + MP_JOIN"]
 
 m_esta_mp -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST on remaining subflows"]
 
-m_esta_mp -> m_fin_wait_1 [label="Snd DFIN"]
+m_esta_mp -> m_fin_wait_1 [label="App Close\nSnd DFIN"]
 
 m_fastclose -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST"]
 m_fastclose -> m_closed [label="Rcv RST"]
 
 m_close_wait -> m_last_ack [label="App close\nSnd DFIN"]
 
-m_fin_wait_1 -> m_fin_wait_2 [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
+m_fin_wait_1 -> m_fin_wait_2 [label="Rcv DATA_ACK[DFIN]"]
+m_fin_wait_1 -> m_closing [label="Rcv DFIN\nSnd DATACK[DFIN]"]
 
-m_fin_wait_2 -> m_time_wait [label="Rcv DFIN\nSnd DATA_ACK[DFIN]"]
+m_closing -> m_time_wait [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
 
-m_last_ack -> m_closed [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
+m_fin_wait_2 -> m_time_wait [label="Rcv DFIN\nSnd DATA_ACK[DFIN]\nClose all subflows"]
+
+m_last_ack -> m_time_wait [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
 
 m_time_wait -> m_closed [label="All subflow closed"]
 

@@ -1,1 +1,4 @@
 For a connection to allow multiple subflows, it should send DSS untilit receives one DataAck: no timeout mentioned in RFC (linux stops after sending 64kb of data)
+
+-can a meta in M_FIN_WAIT accept new subflows ?
+-can a meta in M_CLOSE_WAIT accept new subflows ?
