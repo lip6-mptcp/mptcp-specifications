@@ -5,36 +5,57 @@
 # maybe add some timeout indications ?
 
 digraph g{
-
+#orientation=portrait
+#ratio=fill
+#size="8.3,11.7!"
+rankdir="TB"; # ranks are assigned top -> bottom
+#mode="ipsep"
+# ratio does not change the layout, it just gives more length to some edges apparently
+#ratio=1.5
+splines=false
 # name must start by "cluster" if we want border
 subgraph clustertcp_fallback {
 label="TCP FSM";
+
+rank=source
 esta [label="ESTAB"]
+syn_rcvd [label="SYN_RCVD"]
+
 color=blue;
 graph[style=dotted];
 }
 
+
+#{
+	#rank= syn_rcvd; esta
+#}
 subgraph clustermptcp {
 label="Meta";
 
 node [shape=rectangle]
 m_listen [label="M_LISTEN"]
-m_syn_sent [label="M_SYN_SENT"]
-m_syn_rcvd [label="M_SYN_RCVD"]
-
+{
+	rank=same;
+	m_syn_sent [label="M_SYN_SENT"]
+#{rank=min; m_syn_rcvd [label="M_SYN_RCVD"] }
+	m_syn_rcvd [label="M_SYN_RCVD"]
+}
 #m_esta_sp [label="M_ESTA_SP",shape=none]
 m_esta_mp [label="M_ESTA_MP"]
-m_esta_wait [label="M_ESTA_WAIT\nWaiting for dataack\nSnd DSS in each segment"]
+
+{
+	rank=same;
+	m_esta_wait [label="M_ESTA_WAIT\nWaiting for dataack\nSnd DSS in each segment"]
+	m_closed [label="M_CLOSED"]
+}
 
 # could link to a subgraph/cluster
 #m_on_dfin [label="See appendix C"]
 #m_on_fin [label="See TCP FSM"]
 
-m_closed [label="M_CLOSED"]
 
 m_fastclose [label="M_FASTCLOSE_WAIT"]
-
-syn_rcvd [label="Fallback to TCP"]
+m_fastclose -> m_fin_wait_1 [style= invisible]
 
 
 }
@@ -48,6 +69,7 @@ m_closing [label="M_CLOSING"]
 }
 
 subgraph clusterpassiveclose {
+rank="max"
 label="Passive close"
 m_close_wait [label="M_CLOSE_WAIT"]
 m_last_ack [label="M_LAST_ACK"]
@@ -55,19 +77,20 @@ m_last_ack [label="M_LAST_ACK"]
 }
 
 
-subgraph clustermpfail {
+#subgraph clustermpfail {
 node [shape=diamond]
 if_contiguous_data [label="Contiguous data"];
 
 # active nb of subflows
 if_subflow_nb [label="Number of subflows"];
 
-}
+#}
 
-
-m_listen -> syn_rcvd [label="Rcv SYN"]
+# to put cluster on top
+#m_listen -> syn_rcvd [label="Rcv SYN\nFalls back to TCP"]
+syn_rcvd -> m_listen [label="Rcv SYN\nFalls back to TCP" dir=back weight="100"]
 m_listen -> m_syn_rcvd [label="Rcv SYN+MP_CAPABLE\nMaster subflow established"]
-m_listen -> m_closed [label="Close App"]
+m_listen -> m_closed [label="Close App" ]
 m_listen -> m_syn_sent [label="Send\nSnd SYN+MP_CAPABLE"]
 
 
@@ -76,20 +99,21 @@ m_syn_sent -> m_syn_rcvd [label="Rcv SYN+MP_CAPABLE"]
 m_syn_sent -> esta [label="Rcv SYN+ACK\nFallback to TCP"]
 
 m_syn_rcvd -> m_esta_wait [label="Snd ACK+MP_CAPABLE"]
-m_syn_rcvd -> esta [label="Rcv ACK\nFallback to TCP"]
+m_syn_rcvd -> esta [label="Rcv ACK\nFallback to TCP" constraint=false spline=false]
 
 if_subflow_nb -> if_contiguous_data [label="=1"];
-if_subflow_nb -> m_esta_mp [label=">1\nSnd RST+MP_FAIL on subflow that received MP_FAIL"]
-if_contiguous_data -> esta [label="yes\nSnd infinite mapping"]
-if_contiguous_data -> esta [label="no\nSnd RST+MP_FAIL\nPossibly recreate subflow and send infinite mapping straightaway"]
+if_subflow_nb -> m_esta_mp [label=">1\nSnd RST+MP_FAIL on subflow that received MP_FAIL" constraint=false]
+if_contiguous_data -> esta [label="yes\nSnd infinite mapping" weight=0]
+if_contiguous_data -> esta [label="no\nSnd RST+MP_FAIL\nPossibly recreate subflow and send infinite mapping straightaway" weight=0]
 
-m_esta_wait -> m_esta_mp [label="Recv DACK within constraints"]
-m_esta_wait -> esta [label="No DACK within constraints\nSnd infinite mapping\nFallback to TCP"]
+m_esta_wait -> m_esta_mp [label="Recv DACK within constraints" weight=0]
+m_esta_wait -> esta [label="No DACK within constraints\nSnd infinite mapping\nFallback to TCP"
+constraint=false]
 
 
-m_esta_mp -> if_subflow_nb [label="Error detected (wrong checksum)\nSndMP_FAIL"]
+m_esta_mp -> if_subflow_nb [label="Error detected (wrong checksum)\nSndMP_FAIL" constraint=false]
 
-m_esta_mp -> m_close_wait [label="Recv DFIN\nSnd DATA_ACK[DFIN]"]
+m_esta_mp -> m_close_wait [label="Recv DFIN\nSnd DATA_ACK[DFIN]" minlen=3]
 m_esta_mp -> m_fastclose [label="Close all subflows but 1\nSnd MP_FASTCLOSE on remaining sf"]
 
 #m_esta_mp:nw -> m_esta_mp:sw [label="Rcv SYN + MP_JOIN"]
@@ -99,7 +123,7 @@ m_esta_mp -> m_esta_mp [label="Active open\nSnd SYN+MP_JOIN"]
 
 m_esta_mp -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST on remaining subflows"]
 
-m_esta_mp -> m_fin_wait_1 [label="App Close\nSnd DFIN"]
+m_esta_mp -> m_fin_wait_1 [label="App Close\nSnd DFIN" weight=0]
 
 m_fastclose -> m_closed [label="Rcv MP_FASTCLOSE\nSnd RST"]
 m_fastclose -> m_closed [label="Rcv RST"]
@@ -115,11 +139,13 @@ m_fin_wait_2 -> m_time_wait [label="Rcv DFIN\nSnd DATA_ACK[DFIN]\nClose all subf
 
 m_last_ack -> m_time_wait [label="Rcv DATA_ACK[DFIN]\nClose all subflows"]
 
-m_time_wait -> m_closed [label="Timeout 2MSL/All subflow closed"]
+m_time_wait -> m_closed [label="Timeout 2MSL/All subflow closed" weight=0]
 
 m_closed -> m_syn_sent [label="Active open\nSnd SYN+MP_CAPABLE"]
 m_closed -> m_listen [label="Passive open"]
 
-
-
+# faire ca les sort de leur cluster courant
+#{
+#rank=same; if_contiguous_data; m_time_wait
+#}
 }
